@@ -7,6 +7,10 @@ import scala.util.Random
 
 class GlulxMemorySpec extends FlatSpec with Matchers {
 
+  def bytesToString(b: ByteVector) =
+    b.take(10).toArray.map(_.toString).mkString(",") +
+      (if(b.length > 10) "..." else "")
+
 	def randomBytes(sz: Int, rnd: Random = Random): ByteVector = {
 		val arr = new Array[Byte](sz)
 		rnd.nextBytes(arr)
@@ -15,17 +19,26 @@ class GlulxMemorySpec extends FlatSpec with Matchers {
 
   def randomPage: Page = MemPage(randomBytes(Page.size))
 
-  "A page" should "return stored data" in {
+  "A mempage" should "return stored data" in {
 		val offset = 10
 		val len = 1024
 		val d = randomBytes(len)
-		val pg = MemPage.empty
+		val pg: Page = MemPage.empty
     val exp = MemPage(ByteVector.fill(offset)(0) ++ d.take(Page.size - offset))
-		pg.setBytes(offset, d) match {
-      case (newpage, rest) => 
-        assert(newpage == exp)
-        assert(rest == d.drop(Page.size - offset))
-    }
+		val (newpage, rest) = pg.setBytes(offset, d)
+    assert(newpage == exp)
+    assert(rest == d.drop(Page.size - offset))
   }
 
+  "A memsegment" should "return stored data" in {
+    def storeGetTest(seglen: Int, dlen: Int, off: Int) = {
+      val d = randomBytes(dlen)
+      val seg: Segment = MemSegment.empty(seglen)
+      val actual = seg.putBytes(off, d).getBytes(off, dlen)
+      assert(actual == d, s"No match: ${bytesToString(d)} != ${bytesToString(actual)}")
+    }
+    storeGetTest(256, 3, 0)
+    storeGetTest(512, 3, 255)
+    storeGetTest(1024 * 5, 567, 355)
+  }
 }
