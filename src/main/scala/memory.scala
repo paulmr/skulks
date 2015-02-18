@@ -14,15 +14,18 @@ object Page {
 }
 
 case class MemPage(data: ByteVector) extends Page {
-  require(data.length == Page.size)
+  require(data.length == Page.size,
+    s"Invalid page size for data.length = ${data.length} (page size should be ${Page.size})")
 
   def getBytes(start: Int, count: Int): (ByteVector, Int) = {
     val bytes = data.drop(start).take(count)
     (bytes, count - bytes.size)
   }
     //data.slice(start, start + count)
-  def setBytes(start: Int, bytes: ByteVector): (Page, ByteVector) = ???
-    //MemPage(data.patch(start, bytes))
+  def setBytes(start: Int, bytes: ByteVector): (Page, ByteVector) = {
+    val (fits, rest) = bytes.splitAt(Page.size - start)
+    (MemPage(data.patch(start, fits)), rest)
+  }
 }
 
 object MemPage {
