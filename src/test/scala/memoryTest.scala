@@ -4,18 +4,9 @@ import org.scalatest._
 import skulks.memory._
 import scodec.bits.ByteVector
 import scala.util.Random
+import skulks.test.TestUtil._
 
 class GlulxMemorySpec extends FlatSpec with Matchers {
-
-  def bytesToString(b: ByteVector) =
-    b.take(10).toArray.map(_.toString).mkString(",") +
-      (if(b.length > 10) "..." else "")
-
-	def randomBytes(sz: Int, rnd: Random = Random): ByteVector = {
-		val arr = new Array[Byte](sz)
-		rnd.nextBytes(arr)
-		ByteVector(arr)
-	}
 
   def randomPage: Page = MemPage(randomBytes(Page.size))
 
