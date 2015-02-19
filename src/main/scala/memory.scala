@@ -81,8 +81,9 @@ case class MemSegment(data: Vector[Page]) extends Segment {
   def getPage(pgnum: Int) = data(pgnum)
   def setPage(pgnum: Int, replaceWith: Page) =
     MemSegment(data.updated(pgnum,  replaceWith))
+  override def toString = s"MemSegment(${data.length} page(s))"
 }
 
 object MemSegment {
-  def empty(sz: Int) = MemSegment(Vector.fill(sz)(MemPage.empty))
+  def empty(sz: Int) = MemSegment(Vector.fill(sz / Page.size)(MemPage.empty))
 }
