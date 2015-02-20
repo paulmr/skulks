@@ -1,20 +1,17 @@
 package skulks.memory
 
+import skulks.util.StateTransform
 import scodec.bits.ByteVector
 
-trait StackTransform[A] {
-  val op: () => (A, Stack)
-  lazy val force = op()
-  def value: A = force._1
-  def next: Stack = force._2
-
-  def map[B](f: A => B): StackTransform[B] = StackTransform((f(value), next))
+trait StackTransform[A] extends StateTransform[A, Stack] {
+  def build[B](b: B, nextStack: Stack) = StackTransform(b, nextStack)
 }
 
 object StackTransform {
-  def apply[A](f: => (A, Stack)) = new StackTransform[A] {
-    val op = () => f
+  def apply[A](a: A, nextStack: Stack) = new StackTransform[A] {
+    val result = (a, nextStack)
   }
+  def unit(nextStack: Stack) = apply((), nextStack)
 }
 
 trait Stack {
@@ -30,13 +27,10 @@ trait Stack {
 class MemStack(data: Segment, val sp: Long) extends Stack {
   val max = data.length
 
-  def popBytes(count: Int): StackTransform[ByteVector] = StackTransform {
+  def popBytes(count: Int): StackTransform[ByteVector] =
     // don't need to clear the data, just move the stack pointer down
     // however, TODO, it might make it more efficient to clear it so that data can be released
-    (data.getBytes(sp, count), new MemStack(data, sp - count))
-  }
+    StackTransform(data.getBytes(sp, count), new MemStack(data, sp - count))
 
-  def pushBytes(bytes: ByteVector) = StackTransform { 
-    ((), new MemStack(data.putBytes(sp, bytes), sp + bytes.length))
-  }
+  def pushBytes(bytes: ByteVector) = StackTransform.unit(new MemStack(data.putBytes(sp, bytes), sp + bytes.length)) 
 }
