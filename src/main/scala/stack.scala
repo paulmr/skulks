@@ -3,34 +3,36 @@ package skulks.memory
 import skulks.util.StateTransform
 import scodec.bits.ByteVector
 
-trait StackTransform[A] extends StateTransform[A, Stack] {
-  def build[B](b: B, nextStack: Stack) = StackTransform(b, nextStack)
-}
-
 object StackTransform {
-  def apply[A](a: A, nextStack: Stack) = new StackTransform[A] {
-    val result = (a, nextStack)
+	def apply[A](f: Stack => (A, Stack)) = new StateTransform[A, Stack] {
+		val op = f
   }
-  def unit(nextStack: Stack) = apply((), nextStack)
 }
 
 trait Stack {
-  val max: Long
   val sp: Long
+  val segment: Segment
+	lazy val max = segment.length
 
-  def pushBytes(bytes: ByteVector): StackTransform[Unit]
-  def popBytes(count: Int): StackTransform[ByteVector]
+  def update(sp: Long = this.sp, segment: Segment = this.segment): Stack
+
+  def pushBytes(bytes: ByteVector) =
+    (Unit, update(sp + bytes.length, segment.putBytes(sp, bytes)))
+  // don't need to clear the data, just move the stack pointer down
+  // however, TODO, it might make it more efficient to clear it so that data can be released
+  def popBytes(count: Int) = 
+    (segment.getBytes(sp - count, count), update(sp - count))
 
   override def toString = s"Stack(sp = ${sp}, max = ${max})"
 }
 
-class MemStack(data: Segment, val sp: Long) extends Stack {
-  val max = data.length
+// various StackTransform operations that can be combined
+object StackOps {
+  def pushBytes(bytes: ByteVector) = StackTransform { (s) => s.pushBytes(bytes) }
+  def popBytes (count: Int)        = StackTransform { (s) => s.popBytes (count) }
+}
 
-  def popBytes(count: Int): StackTransform[ByteVector] =
-    // don't need to clear the data, just move the stack pointer down
-    // however, TODO, it might make it more efficient to clear it so that data can be released
-    StackTransform(data.getBytes(sp, count), new MemStack(data, sp - count))
-
-  def pushBytes(bytes: ByteVector) = StackTransform.unit(new MemStack(data.putBytes(sp, bytes), sp + bytes.length)) 
+class MemStack(val segment: Segment, val sp: Long) extends Stack {
+	def update(sp: Long = this.sp, segment: Segment = this.segment): Stack =
+		new MemStack(segment, sp)
 }
